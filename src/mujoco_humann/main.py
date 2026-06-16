@@ -19,7 +19,7 @@ data.ctrl[:] = 0
 step_freq = 0.05
 step_amp = 0.12
 arm_amp = 0.03      # 调小手臂摆动幅度
-forward_speed = 0.03  # 慢速行走
+forward_speed = 0.015  # 慢速行走
 
 # 矩形路径参数
 rect_length_x = 2.0    # 矩形长边
