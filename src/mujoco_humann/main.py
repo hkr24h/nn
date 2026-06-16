@@ -18,7 +18,7 @@ data.ctrl[:] = 0
 # 步态参数
 step_freq = 0.05
 step_amp = 0.12
-arm_amp = 0.03
+arm_amp = 0.03      # 调小手臂摆动幅度
 forward_speed = 0.03  # 慢速行走
 
 # 矩形路径参数
@@ -34,17 +34,19 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         t += dt
         phase = t * step_freq
 
-        # 踏步、摆臂控制不变
+        # 腿部踏步控制
         data.ctrl[5] = np.sin(phase) * step_amp
         data.ctrl[6] = np.sin(phase) * step_amp * 0.3
         data.ctrl[8] = np.sin(phase + np.pi) * step_amp
         data.ctrl[9] = np.sin(phase + np.pi) * step_amp * 0.3
 
+        # 小幅手臂摆动
         data.ctrl[1] = np.sin(phase + np.pi) * arm_amp
         data.ctrl[2] = np.sin(phase + np.pi) * arm_amp * 0.4
         data.ctrl[3] = np.sin(phase) * arm_amp
         data.ctrl[4] = np.sin(phase) * arm_amp * 0.4
 
+        # 头部、脚踝固定不动
         data.ctrl[0] = 0
         data.ctrl[7] = 0
         data.ctrl[10] = 0
