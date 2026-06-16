@@ -15,11 +15,11 @@ data.qpos[6] = 0.0
 data.qvel[:] = 0
 data.ctrl[:] = 0
 
-# 步态参数
-step_freq = 0.05
+# 步态参数【全部减速调整】
+step_freq = 0.025       # 原0.05，减半，踏步节奏慢一倍
 step_amp = 0.12
-arm_amp = 0.03      # 调小手臂摆动幅度
-forward_speed = 0.015  # 慢速行走
+arm_amp = 0.03      
+forward_speed = 0.007   # 原0.015，大幅降低平移速度
 
 # 矩形路径参数
 rect_length_x = 2.0    # 矩形长边
