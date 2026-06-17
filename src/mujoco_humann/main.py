@@ -55,6 +55,19 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         data.ctrl[3] = np.sin(phase) * arm_amp
         data.ctrl[4] = np.sin(phase) * arm_amp * 0.4
 
+
+        # 腿部踏步控制
+        data.ctrl[5] = np.sin(phase) * step_amp
+        data.ctrl[6] = np.sin(phase) * step_amp * 0.3
+        data.ctrl[8] = np.sin(phase + np.pi) * step_amp
+        data.ctrl[9] = np.sin(phase + np.pi) * step_amp * 0.3
+
+        # 小幅手臂摆动
+        data.ctrl[1] = np.sin(phase + np.pi) * arm_amp
+        data.ctrl[2] = np.sin(phase + np.pi) * arm_amp * 0.4
+        data.ctrl[3] = np.sin(phase) * arm_amp
+        data.ctrl[4] = np.sin(phase) * arm_amp * 0.4
+
         # 头部、脚踝固定不动
         data.ctrl[0] = 0
         data.ctrl[7] = 0
@@ -102,10 +115,42 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         data.qpos[6] += (target - data.qpos[6]) * turn_smooth_k
 
         # 锁定躯干姿态防倒地（仅放开yaw转向）
+        # 矩形路径移动逻辑
+        move_step = forward_speed * dt
+        segment_dist += move_step
+
+        if current_dir == 0:
+            # 沿X正向走长边
+            data.qpos[0] += move_step
+            # 走完长边，切换向Y
+            if segment_dist >= rect_length_x:
+                current_dir = 1
+                segment_dist = 0.0
+        elif current_dir == 1:
+            # 沿Y正向走短边
+            data.qpos[1] += move_step
+            if segment_dist >= rect_length_y:
+                current_dir = 2
+                segment_dist = 0.0
+        elif current_dir == 2:
+            # 沿X负向走长边
+            data.qpos[0] -= move_step
+            if segment_dist >= rect_length_x:
+                current_dir = 3
+                segment_dist = 0.0
+        elif current_dir == 3:
+            # 沿Y负向走短边
+            data.qpos[1] -= move_step
+            if segment_dist >= rect_length_y:
+                current_dir = 0
+                segment_dist = 0.0
+
+        # 锁定躯干姿态防倒地
         data.qpos[2] = 0.9
         data.qpos[3] = 1.0
         data.qpos[4] = 0.0
         data.qpos[5] = 0.0
+        data.qpos[6] = 0.0
         data.qvel[:] *= 0.98
 
         mujoco.mj_step(model, data)
