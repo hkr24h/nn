@@ -27,6 +27,15 @@ rect_length_y = 1.2    # 矩形短边
 current_dir = 0        # 0:+X,1:+Y,2:-X,3:-Y 四个方向
 segment_dist = 0.0     # 当前这条边已经走了的距离
 
+# 一圈停顿参数
+pause_time = 2.0
+is_pausing = False
+pause_timer = 0.0
+
+# 转身相关参数
+yaw_target = [0, np.pi/2, np.pi, 3*np.pi/2]  # 四个方向对应的躯干朝向
+turn_smooth_k = 0.03  # 转身平滑系数，越大转得越快
+
 with mujoco.viewer.launch_passive(model, data) as viewer:
     t = 0.0
     while viewer.is_running():
@@ -34,7 +43,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         t += dt
         phase = t * step_freq
 
-        # 腿部踏步控制
+        # 腿部踏步控制（停顿期间依然原地踏步）
         data.ctrl[5] = np.sin(phase) * step_amp
         data.ctrl[6] = np.sin(phase) * step_amp * 0.3
         data.ctrl[8] = np.sin(phase + np.pi) * step_amp
@@ -51,42 +60,52 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         data.ctrl[7] = 0
         data.ctrl[10] = 0
 
-        # 矩形路径移动逻辑
-        move_step = forward_speed * dt
-        segment_dist += move_step
+        # 停顿计时逻辑
+        if is_pausing:
+            pause_timer += dt
+            if pause_timer >= pause_time:
+                is_pausing = False
+                pause_timer = 0.0
+        else:
+            move_step = forward_speed * dt
+            segment_dist += move_step
 
-        if current_dir == 0:
-            # 沿X正向走长边
-            data.qpos[0] += move_step
-            # 走完长边，切换向Y
-            if segment_dist >= rect_length_x:
-                current_dir = 1
-                segment_dist = 0.0
-        elif current_dir == 1:
-            # 沿Y正向走短边
-            data.qpos[1] += move_step
-            if segment_dist >= rect_length_y:
-                current_dir = 2
-                segment_dist = 0.0
-        elif current_dir == 2:
-            # 沿X负向走长边
-            data.qpos[0] -= move_step
-            if segment_dist >= rect_length_x:
-                current_dir = 3
-                segment_dist = 0.0
-        elif current_dir == 3:
-            # 沿Y负向走短边
-            data.qpos[1] -= move_step
-            if segment_dist >= rect_length_y:
-                current_dir = 0
-                segment_dist = 0.0
+            if current_dir == 0:
+                # +X方向前进
+                data.qpos[0] += move_step
+                if segment_dist >= rect_length_x:
+                    current_dir = 1
+                    segment_dist = 0.0
+            elif current_dir == 1:
+                # +Y方向前进
+                data.qpos[1] += move_step
+                if segment_dist >= rect_length_y:
+                    current_dir = 2
+                    segment_dist = 0.0
+            elif current_dir == 2:
+                # -X方向前进
+                data.qpos[0] -= move_step
+                if segment_dist >= rect_length_x:
+                    current_dir = 3
+                    segment_dist = 0.0
+            elif current_dir == 3:
+                # -Y方向前进
+                data.qpos[1] -= move_step
+                if segment_dist >= rect_length_y:
+                    current_dir = 0
+                    segment_dist = 0.0
+                    is_pausing = True
 
-        # 锁定躯干姿态防倒地
+        # 核心：平滑自动转身，躯干对准当前前进方向
+        target = yaw_target[current_dir]
+        # 角度差值平滑收敛，实现缓慢转身
+        data.qpos[6] += (target - data.qpos[6]) * turn_smooth_k
+
+        # 锁定躯干姿态防倒地（仅放开yaw转向）
         data.qpos[2] = 0.9
         data.qpos[3] = 1.0
         data.qpos[4] = 0.0
         data.qpos[5] = 0.0
-        data.qpos[6] = 0.0
         data.qvel[:] *= 0.98
 
         mujoco.mj_step(model, data)
